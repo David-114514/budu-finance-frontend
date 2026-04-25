@@ -62,8 +62,8 @@ export default function NewTransaction() {
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        if (!form.amount || parseFloat(form.amount) <= 0) {
-            alert('請輸入正確的金額');
+        if (!form.amount || parseFloat(form.amount) === 0) {
+            alert('請輸入金額（正數為收入，負數為支出）');
             return;
         }
         if (!form.categoryId || !form.userId) {
@@ -99,9 +99,8 @@ export default function NewTransaction() {
                             type="number"
                             value={form.amount}
                             onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                            placeholder="例如：50000"
+                            placeholder="正數=收入，負數=支出（例：-2000）"
                             className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1"
-                            required
                         />
                     </div>
 
