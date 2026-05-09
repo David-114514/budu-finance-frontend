@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/axios';
-import { format } from 'date-fns';   // 先安裝：pnpm add date-fns
+import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 export default function Transactions() {
+    const { t, i18n } = useTranslation();
+
     const { data: transactions = [], isLoading } = useQuery({
         queryKey: ['transactions'],
         queryFn: async () => {
@@ -11,21 +14,35 @@ export default function Transactions() {
         }
     });
 
-    if (isLoading) return <div className="text-center py-20">載入交易記錄...</div>;
+    // 類別名稱對照表（前端臨時方案，之後可改成後端支援多語言）
+    const getCategoryName = (categoryName) => {
+        const categoryMap = {
+            '薪資收入': { 'en': 'Salary Income', 'zh-CN': '薪资收入' },
+            '轉入抵銷戶口': { 'en': 'Transfer to Offset Account', 'zh-CN': '转入抵销账户' },
+            '父母抵銷存款': { 'en': 'Parent Offset Deposit', 'zh-CN': '父母抵销存款' },
+            '利息節省返還父母': { 'en': 'Interest Saved Returned to Parents', 'zh-CN': '利息节省返还父母' },
+            '家用開支': { 'en': 'Household Expenses', 'zh-CN': '家用开支' },
+            '家電購置': { 'en': 'Appliance Purchase', 'zh-CN': '家电购置' },
+            '中介及律師費': { 'en': 'Agency & Legal Fees', 'zh-CN': '中介及律师费' },
+        };
+        const currentLang = i18n.language;
+        return categoryMap[categoryName]?.[currentLang] || categoryName;
+    };
+
+    if (isLoading) return <div className="text-center py-20">{t('common.loading')}</div>;
 
     return (
         <div>
-            <h2 className="text-3xl font-bold mb-6">交易流水</h2>
-
+            <h2 className="text-3xl font-bold mb-6">{t('app.transactions')}</h2>
             <div className="bg-white rounded-3xl shadow overflow-hidden">
                 <table className="w-full">
                     <thead className="bg-gray-50 border-b">
                     <tr>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">日期</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">類別</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">描述</th>
-                        <th className="px-6 py-4 text-right text-sm font-medium text-gray-500">金額</th>
-                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">操作人</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">{t('transaction.date')}</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">{t('transaction.category')}</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">{t('transaction.description')}</th>
+                        <th className="px-6 py-4 text-right text-sm font-medium text-gray-500">{t('transaction.amount')}</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">{t('transaction.operator')}</th>
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -35,7 +52,7 @@ export default function Transactions() {
                                 {format(new Date(t.date), 'yyyy-MM-dd')}
                             </td>
                             <td className="px-6 py-4">
-                                <span className="text-lg mr-2">{t.categoryName}</span>
+                                <span className="text-lg mr-2">{getCategoryName(t.categoryName)}</span>
                             </td>
                             <td className="px-6 py-4 text-gray-600">{t.description || '-'}</td>
                             <td className="px-6 py-4 text-right font-medium">
@@ -53,7 +70,7 @@ export default function Transactions() {
 
                 {transactions.length === 0 && (
                     <div className="text-center py-20 text-gray-400">
-                        還沒有交易記錄，快去新增吧！
+                        {t('transaction.noRecords')}
                     </div>
                 )}
             </div>

@@ -1,0 +1,49 @@
+{
+  "app": {
+    "title": "Bubu 家庭财务",
+    "dashboard": "总览",
+    "newTransaction": "新增交易",
+    "transactions": "流水记录",
+    "logout": "登出"
+  },
+  "dashboard": {
+    "title": "家庭财务总览",
+    "subtitle": "即时掌握按揭进度与家庭贡献",
+    "effectiveDebt": "有效净债务",
+    "offsetAccount": "抵销账户",
+    "parentsContribution": "父母总贡献",
+    "effectiveDebtDesc": "按揭余额 - 抵销账户",
+    "offsetDesc": "HKD ({{percent}}%)",
+    "parentsDesc": "包含首付 + 抵销存款",
+    "monthlyTransfer": "每月转入抵销账户",
+    "contributionRatio": "家庭贡献比例"
+  },
+  "quickActions": {
+    "title": "快速操作",
+    "newTransaction": "新增交易",
+    "transferToOffset": "转入抵销账户"
+  },
+  "common": {
+    "loading": "载入中...",
+    "error": "无法连接到后端",
+    "retry": "重试",
+    "submitting": "提交中...",
+    "unknownError": "未知错误"
+  },
+  "transaction": {
+    "title": "新增交易记录",
+    "subtitle": "记录薪资转入、父母存款、家用开支等",
+    "date": "日期",
+    "amount": "金额 (HKD)",
+    "amountPlaceholder": "正数=收入，负数=支出（例：-2000）",
+    "operator": "操作人",
+    "category": "交易类别",
+    "description": "描述 / 备注",
+    "descriptionPlaceholder": "例如：2026年4月薪水转入抵销账户",
+    "success": "✅ 交易记录新增成功！",
+    "failed": "❌ 新增失败",
+    "amountRequired": "请输入金额（正数为收入，负数为支出）",
+    "categoryAndUserRequired": "请选择类别和操作人",
+    "submit": "✅ 确认新增这笔交易"
+  }
+}
