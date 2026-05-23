@@ -10,12 +10,12 @@
     "title": "Family Financial Overview",
     "subtitle": "Real-time mortgage progress and family contributions",
     "effectiveDebt": "EFFECTIVE DEBT",
-    "offsetAccount": "OFFSET ACCOUNT",
-    "parentsContribution": "PARENTS CONTRIBUTION",
     "effectiveDebtDesc": "Mortgage Balance - Offset Account",
-    "offsetDesc": "HKD ({{percent}}%)",
-    "parentsDesc": "Down Payment + Offset Deposits",
-    "monthlyTransfer": "Monthly Transfer to Offset Account",
+    "mortgageAccountBalance": "Mortgage Account Balance",
+    "mortgageAccountDesc": "Available to offset mortgage interest",
+    "personalBalanceTitle": "Personal Remaining Balance",
+    "currentBalance": "Current Balance",
+    "monthlyTransfer": "Monthly Transfer to Mortgage Account",
     "contributionRatio": "Family Contribution Ratio"
   },
   "quickActions": {
@@ -35,15 +35,15 @@
     "subtitle": "Record salary transfers, parent deposits, household expenses, etc.",
     "date": "Date",
     "amount": "Amount (HKD)",
-    "amountPlaceholder": "Positive = Income, Negative = Expense (e.g. -2000)",
-    "operator": "Operator",
+    "amountPlaceholder": "Amount will auto-adjust based on category",
+    "operator": "Contributor",
     "category": "Transaction Category",
     "description": "Description / Note",
-    "descriptionPlaceholder": "e.g. April 2026 salary transferred to offset account",
+    "descriptionPlaceholder": "e.g. April 2026 salary transferred to mortgage account",
     "success": "✅ Transaction recorded successfully!",
     "failed": "❌ Failed to add transaction",
-    "amountRequired": "Please enter an amount (positive for income, negative for expense)",
-    "categoryAndUserRequired": "Please select a category and operator",
+    "amountRequired": "Please enter an amount",
+    "categoryAndUserRequired": "Please select a category and contributor",
     "submit": "✅ Confirm and Add This Transaction"
   }
 }
