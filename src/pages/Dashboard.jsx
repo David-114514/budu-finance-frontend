@@ -6,16 +6,16 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useTranslation } from 'react-i18next';
 import { format, subMonths } from 'date-fns';
 
-const COLORS = ['#3b82f6', '#10b981', '#8b5cf6'];
+const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b'];
 
-export default function Dashboard({ onNavigate }) {
+export default function Dashboard() {
     const { t } = useTranslation();
 
     // 日期範圍狀態（預設最近6個月）
     const [startDate, setStartDate] = useState(format(subMonths(new Date(), 6), 'yyyy-MM-dd'));
     const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-    const { data: dashboard, isLoading, error, refetch } = useQuery({
+    const { data: dashboard, isLoading, error} = useQuery({
         queryKey: ['dashboard'],
         queryFn: async () => (await api.get('/dashboard')).data,
     });
@@ -41,11 +41,6 @@ export default function Dashboard({ onNavigate }) {
     if (isLoading) return <div className="text-center py-20 text-xl">{t('common.loading')}</div>;
     if (error) return <div className="text-center py-20 text-red-600">{t('common.error')}</div>;
 
-    const debtInWan = (dashboard?.effectiveDebt / 10000).toFixed(1) || '0.0';
-    const offsetPercent = dashboard?.mortgageBalance > 0
-        ? ((dashboard.offsetTotal / dashboard.mortgageBalance) * 100).toFixed(1)
-        : 0;
-
     return (
         <div className="space-y-10">
             <div>
@@ -53,33 +48,40 @@ export default function Dashboard({ onNavigate }) {
                 <p className="text-gray-600 mt-2">{t('dashboard.subtitle')}</p>
             </div>
 
-            {/* 核心數據卡片 */}
+            {/* 總投入 + 當前餘額 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-3xl shadow-xl p-8 border border-red-100">
+                {/* 總投入 */}
+                <div className="bg-white rounded-3xl shadow-xl p-8 border border-blue-100">
                     <div className="flex justify-between">
                         <div>
-                            <p className="text-red-600 text-sm font-medium">{t('dashboard.effectiveDebt')}</p>
-                            <p className="text-5xl font-bold mt-3">{debtInWan} <span className="text-2xl">W</span></p>
+                            <p className="text-blue-600 text-sm font-medium">{t('dashboard.totalContribution')}</p>
+                            <p className="text-5xl font-bold mt-3">
+                                ¥{(personalBalances.reduce((sum, p) => sum + (p.balance || 0), 0) / 10000).toFixed(1)}
+                                <span className="text-2xl">{t('common.w')}</span>
+                            </p>
                         </div>
-                        <Home className="w-16 h-16 text-red-500" />
+                        <TrendingUp className="w-16 h-16 text-blue-500" />
                     </div>
-                    <p className="text-sm text-gray-500 mt-6">{t('dashboard.effectiveDebtDesc')}</p>
+                    <p className="text-sm text-gray-500 mt-6">{t('dashboard.totalContributionDesc')}</p>
                 </div>
 
+                {/* 當前餘額 */}
                 <div className="bg-white rounded-3xl shadow-xl p-8 border border-green-100">
                     <div className="flex justify-between">
                         <div>
-                            <p className="text-green-600 text-sm font-medium">{t('dashboard.mortgageAccountBalance')}</p>
-                            <p className="text-5xl font-bold mt-3">{dashboard?.offsetTotal?.toLocaleString() || 0}</p>
-                            <p className="text-green-600">HKD ({offsetPercent}%)</p>
+                            <p className="text-green-600 text-sm font-medium">{t('dashboard.currentBalance')}</p>
+                            <p className="text-5xl font-bold mt-3">
+                                ¥{(dashboard?.currentBalance / 10000).toFixed(1)}
+                                <span className="text-2xl">{t('common.w')}</span>
+                            </p>
                         </div>
-                        <TrendingUp className="w-16 h-16 text-green-500" />
+                        <Wallet className="w-16 h-16 text-green-500" />
                     </div>
-                    <p className="text-sm text-gray-500 mt-6">{t('dashboard.mortgageAccountDesc')}</p>
+                    <p className="text-sm text-gray-500 mt-6">{t('dashboard.currentBalanceDesc')}</p>
                 </div>
             </div>
 
-            {/* 個人剩餘金額（B方案） */}
+            {/* 個人貢獻金額 */}
             <div className="bg-white rounded-3xl shadow-xl p-8">
                 <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
                     <Users className="w-5 h-5" /> {t('dashboard.personalBalanceTitle')}
@@ -93,7 +95,7 @@ export default function Dashboard({ onNavigate }) {
                                     <span className="font-medium text-gray-700">{person.userName}</span>
                                 </div>
                                 <div className="text-4xl font-bold text-gray-900">
-                                    ¥{(person.balance / 10000).toFixed(1)}<span className="text-2xl">W</span>
+                                    ¥{(person.balance / 10000).toFixed(1)}<span className="text-2xl">{t('common.w')}</span>
                                 </div>
                                 <div className="text-sm text-gray-500 mt-1">{t('dashboard.currentBalance')}</div>
                             </div>

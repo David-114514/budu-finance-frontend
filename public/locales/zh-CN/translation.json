@@ -8,27 +8,24 @@
   },
   "dashboard": {
     "title": "家庭财务总览",
-    "subtitle": "即时掌握按揭进度与家庭贡献",
-    "effectiveDebt": "有效净债务",
-    "effectiveDebtDesc": "按揭余额 - 抵销账户",
-    "mortgageAccountBalance": "按揭户口余额",
-    "mortgageAccountDesc": "可用于抵销按揭利息",
-    "personalBalanceTitle": "个人剩余金额",
-    "currentBalance": "目前剩余",
+    "subtitle": "即时掌握家庭财务状况",
+    "totalContribution": "总投入",
+    "currentBalance": "当前金额",
+    "totalContributionDesc": "所有入帐资金总和",
+    "currentBalanceDesc": "总投入 - 所有支出",
+    "personalBalanceTitle": "个人貢獻金额",
+    "currentBalanceLabel": "当前余额",
     "monthlyTransfer": "每月转入按揭账户",
-    "contributionRatio": "家庭贡献比例"
-  },
-  "quickActions": {
-    "title": "快速操作",
-    "newTransaction": "新增交易",
-    "transferToOffset": "转入抵销账户"
+    "contributionRatio": "家庭贡献比例",
+    "note": "* 根据实际交易记录自动计算"
   },
   "common": {
     "loading": "载入中...",
     "error": "无法连接到后端",
     "retry": "重试",
     "submitting": "提交中...",
-    "unknownError": "未知错误"
+    "unknownError": "未知错误",
+    "w": "萬"
   },
   "transaction": {
     "title": "新增交易记录",
@@ -43,7 +40,6 @@
     "success": "✅ 交易记录新增成功！",
     "failed": "❌ 新增失败",
     "amountRequired": "请输入金额",
-    "categoryAndUserRequired": "请选择类别和贡献者",
     "submit": "✅ 确认新增这笔交易"
   }
 }

@@ -10,29 +10,38 @@ export default function NewTransaction() {
     const [form, setForm] = useState({
         date: new Date().toISOString().split('T')[0],
         amount: '',
-        fromAccountId: '',
-        toAccountId: '2',
-        categoryId: '1',  // 預設：轉入按揭戶口
+        categoryId: '',
         userId: '1',
         description: '',
         mortgageInterestSaved: '0'
     });
 
-    const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: async () => (await api.get('/accounts')).data });
-    const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: async () => (await api.get('/categories')).data });
-    const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: async () => (await api.get('/users')).data });
+    const { data: categories = [] } = useQuery({
+        queryKey: ['categories'],
+        queryFn: async () => (await api.get('/categories')).data,
+    });
 
-    // 根據類別自動處理金額正負號
+    const { data: users = [] } = useQuery({
+        queryKey: ['users'],
+        queryFn: async () => (await api.get('/users')).data,
+    });
+
+    // 自動選擇第一個類別
+    if (categories.length > 0 && !form.categoryId) {
+        setForm(prev => ({ ...prev, categoryId: categories[0].id }));
+    }
+
+    // 智能金額正負號
     const handleAmountChange = (e) => {
         let value = e.target.value;
         const selectedCategory = categories.find(c => c.id == form.categoryId);
 
-        if (selectedCategory) {
+        if (selectedCategory && value) {
             const isIncome = selectedCategory.name.includes('轉入') || selectedCategory.name.includes('Transfer');
             if (isIncome && value.startsWith('-')) {
-                value = value.substring(1); // 移除負號
-            } else if (!isIncome && value && !value.startsWith('-')) {
-                value = '-' + value; // 自動加負號
+                value = value.substring(1);
+            } else if (!isIncome && !value.startsWith('-')) {
+                value = '-' + value;
             }
         }
         setForm({ ...form, amount: value });
@@ -45,9 +54,7 @@ export default function NewTransaction() {
             setForm({
                 date: new Date().toISOString().split('T')[0],
                 amount: '',
-                fromAccountId: '',
-                toAccountId: '2',
-                categoryId: '1',
+                categoryId: categories[0]?.id || '',
                 userId: '1',
                 description: '',
                 mortgageInterestSaved: '0'
@@ -69,6 +76,15 @@ export default function NewTransaction() {
         mutation.mutate(form);
     };
 
+    // 類別名稱對照表（只保留 2 個類別）
+    const getCategoryName = (categoryName, language) => {
+        const categoryMap = {
+            '轉入按揭戶口': { 'en': 'Transfer to Mortgage Account', 'zh-CN': '轉入按揭戶口' },
+            '按揭戶口支出': { 'en': 'Mortgage Account Expense', 'zh-CN': '按揭戶口支出' },
+        };
+        return categoryMap[categoryName]?.[language] || categoryName;
+    };
+
     return (
         <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-3xl shadow-xl p-8">
@@ -82,17 +98,10 @@ export default function NewTransaction() {
                         <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1" />
                     </div>
 
-                    {/* 金額（智能正負號） */}
+                    {/* 金額 */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.amount')}</label>
-                        <input
-                            type="number"
-                            value={form.amount}
-                            onChange={handleAmountChange}
-                            placeholder={t('transaction.amountPlaceholder')}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1"
-                        />
-                        <p className="text-xs text-gray-400 mt-1">選擇類別後金額會自動變正或負</p>
+                        <input type="number" value={form.amount} onChange={handleAmountChange} placeholder={t('transaction.amountPlaceholder')} className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1" />
                     </div>
 
                     {/* 貢獻者 */}
@@ -103,30 +112,19 @@ export default function NewTransaction() {
                         </select>
                     </div>
 
-                    {/* 類別（只剩 2 個） */}
+                    {/* 類別 */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.category')}</label>
                         <select
                             value={form.categoryId}
-                            onChange={(e) => {
-                                const newCategoryId = e.target.value;
-                                setForm({ ...form, categoryId: newCategoryId });
-
-                                // 切換類別時自動調整金額正負號
-                                if (form.amount) {
-                                    const selectedCat = categories.find(c => c.id == newCategoryId);
-                                    let newAmount = form.amount;
-                                    if (selectedCat) {
-                                        const isIncome = selectedCat.name.includes('轉入') || selectedCat.name.includes('Transfer');
-                                        if (isIncome && newAmount.startsWith('-')) newAmount = newAmount.substring(1);
-                                        else if (!isIncome && newAmount && !newAmount.startsWith('-')) newAmount = '-' + newAmount;
-                                    }
-                                    setForm(prev => ({ ...prev, categoryId: newCategoryId, amount: newAmount }));
-                                }
-                            }}
+                            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                             className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500"
                         >
-                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>)}
+                            {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>
+                                    {cat.icon} {getCategoryName(cat.name, i18n.language)}
+                                </option>
+                            ))}
                         </select>
                     </div>
 

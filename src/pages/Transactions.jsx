@@ -14,16 +14,11 @@ export default function Transactions() {
         }
     });
 
-    // 類別名稱對照表（前端臨時方案，之後可改成後端支援多語言）
+    // 類別名稱對照表（只保留 2 個類別）
     const getCategoryName = (categoryName) => {
         const categoryMap = {
-            '薪資收入': { 'en': 'Salary Income', 'zh-CN': '薪资收入' },
-            '轉入抵銷戶口': { 'en': 'Transfer to Offset Account', 'zh-CN': '转入抵销账户' },
-            '父母抵銷存款': { 'en': 'Parent Offset Deposit', 'zh-CN': '父母抵销存款' },
-            '利息節省返還父母': { 'en': 'Interest Saved Returned to Parents', 'zh-CN': '利息节省返还父母' },
-            '家用開支': { 'en': 'Household Expenses', 'zh-CN': '家用开支' },
-            '家電購置': { 'en': 'Appliance Purchase', 'zh-CN': '家电购置' },
-            '中介及律師費': { 'en': 'Agency & Legal Fees', 'zh-CN': '中介及律师费' },
+            '轉入按揭戶口': { 'en': 'Transfer to Mortgage Account', 'zh-CN': '轉入按揭戶口' },
+            '按揭戶口支出': { 'en': 'Mortgage Account Expense', 'zh-CN': '按揭戶口支出' },
         };
         const currentLang = i18n.language;
         return categoryMap[categoryName]?.[currentLang] || categoryName;
@@ -67,7 +62,6 @@ export default function Transactions() {
                     ))}
                     </tbody>
                 </table>
-
                 {transactions.length === 0 && (
                     <div className="text-center py-20 text-gray-400">
                         {t('transaction.noRecords')}

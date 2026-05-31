@@ -8,27 +8,24 @@
   },
   "dashboard": {
     "title": "Family Financial Overview",
-    "subtitle": "Real-time mortgage progress and family contributions",
-    "effectiveDebt": "EFFECTIVE DEBT",
-    "effectiveDebtDesc": "Mortgage Balance - Offset Account",
-    "mortgageAccountBalance": "Mortgage Account Balance",
-    "mortgageAccountDesc": "Available to offset mortgage interest",
-    "personalBalanceTitle": "Personal Remaining Balance",
+    "subtitle": "Real-time family financial status",
+    "totalContribution": "Total Contribution",
     "currentBalance": "Current Balance",
+    "totalContributionDesc": "All deposited funds",
+    "currentBalanceDesc": "Total Contribution - All Expenses",
+    "personalBalanceTitle": "Personal Remaining Balance",
+    "currentBalanceLabel": "Current Balance",
     "monthlyTransfer": "Monthly Transfer to Mortgage Account",
-    "contributionRatio": "Family Contribution Ratio"
-  },
-  "quickActions": {
-    "title": "Quick Actions",
-    "newTransaction": "New Transaction",
-    "transferToOffset": "Transfer to Offset"
+    "contributionRatio": "Family Contribution Ratio",
+    "note": "* Calculated based on actual transactions"
   },
   "common": {
     "loading": "Loading...",
     "error": "Failed to connect to server",
     "retry": "Retry",
     "submitting": "Submitting...",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "w": "W"
   },
   "transaction": {
     "title": "New Transaction",
@@ -43,7 +40,6 @@
     "success": "✅ Transaction recorded successfully!",
     "failed": "❌ Failed to add transaction",
     "amountRequired": "Please enter an amount",
-    "categoryAndUserRequired": "Please select a category and contributor",
     "submit": "✅ Confirm and Add This Transaction"
   }
 }
