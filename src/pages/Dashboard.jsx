@@ -97,7 +97,7 @@ export default function Dashboard() {
                                 <div className="text-4xl font-bold text-gray-900">
                                     ¥{(person.balance / 10000).toFixed(1)}<span className="text-2xl">{t('common.w')}</span>
                                 </div>
-                                <div className="text-sm text-gray-500 mt-1">{t('dashboard.currentBalance')}</div>
+                                <div className="text-sm text-gray-500 mt-1">{t('dashboard.personalContributionLabel')}</div>
                             </div>
                         ))
                     ) : (

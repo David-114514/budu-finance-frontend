@@ -14,6 +14,7 @@
     "totalContributionDesc": "所有入帐资金总和",
     "currentBalanceDesc": "总投入 - 所有支出",
     "personalBalanceTitle": "个人貢獻金额",
+    "personalContributionLabel": "累計貢獻",
     "currentBalanceLabel": "当前余额",
     "monthlyTransfer": "每月转入按揭账户",
     "contributionRatio": "家庭贡献比例",

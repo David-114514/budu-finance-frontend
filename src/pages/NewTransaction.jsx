@@ -32,6 +32,9 @@ export default function NewTransaction() {
     }
 
     // 智能金額正負號
+    // 注意：本系統核心目的是「記錄當前按揭戶口餘額 + 歷史貢獻」。
+    // 消費記錄非重點（銀行對賬單會更完整）。支出類別主要用來讓 CurrentBalance 保持準確，
+    // 負數金額不會影響任何人的「個人貢獻」總額（後端 calculatePersonalBalances 已明確只看 > 0）。
     const handleAmountChange = (e) => {
         let value = e.target.value;
         const selectedCategory = categories.find(c => c.id == form.categoryId);
