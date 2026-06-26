@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
 import { useTranslation } from 'react-i18next';
+import { isExpenseCategory, sanitizePositiveAmount, toSignedAmount } from '../utils/transactionHelper';
 
 export default function NewTransaction() {
     const { t, i18n } = useTranslation();
@@ -26,28 +27,19 @@ export default function NewTransaction() {
         queryFn: async () => (await api.get('/users')).data,
     });
 
-    // 自動選擇第一個類別
     if (categories.length > 0 && !form.categoryId) {
         setForm(prev => ({ ...prev, categoryId: categories[0].id }));
     }
 
-    // 智能金額正負號
-    // 注意：本系統核心目的是「記錄當前按揭戶口餘額 + 歷史貢獻」。
-    // 消費記錄非重點（銀行對賬單會更完整）。支出類別主要用來讓 CurrentBalance 保持準確，
-    // 負數金額不會影響任何人的「個人貢獻」總額（後端 calculatePersonalBalances 已明確只看 > 0）。
-    const handleAmountChange = (e) => {
-        let value = e.target.value;
-        const selectedCategory = categories.find(c => c.id == form.categoryId);
+    const selectedCategory = categories.find(c => c.id == form.categoryId);
+    const isExpense = isExpenseCategory(selectedCategory);
 
-        if (selectedCategory && value) {
-            const isIncome = selectedCategory.name.includes('轉入') || selectedCategory.name.includes('Transfer');
-            if (isIncome && value.startsWith('-')) {
-                value = value.substring(1);
-            } else if (!isIncome && !value.startsWith('-')) {
-                value = '-' + value;
-            }
-        }
-        setForm({ ...form, amount: value });
+    const handleAmountChange = (e) => {
+        setForm({ ...form, amount: sanitizePositiveAmount(e.target.value) });
+    };
+
+    const handleCategoryChange = (categoryId) => {
+        setForm(prev => ({ ...prev, categoryId }));
     };
 
     const mutation = useMutation({
@@ -62,7 +54,10 @@ export default function NewTransaction() {
                 description: '',
                 mortgageInterestSaved: '0'
             });
-            queryClient.invalidateQueries(['dashboard']);
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['monthlyTransfer'] });
+            queryClient.invalidateQueries({ queryKey: ['monthlyExpense'] });
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
         },
         onError: (error) => {
             const msg = error.response?.data?.message || error.message || t('common.unknownError');
@@ -76,10 +71,19 @@ export default function NewTransaction() {
             alert(t('transaction.amountRequired'));
             return;
         }
-        mutation.mutate(form);
+        const payload = {
+            date: form.date,
+            amount: toSignedAmount(form.amount, selectedCategory),
+            categoryId: form.categoryId,
+            description: form.description,
+            mortgageInterestSaved: form.mortgageInterestSaved,
+        };
+        if (!isExpense) {
+            payload.userId = form.userId;
+        }
+        mutation.mutate(payload);
     };
 
-    // 類別名稱對照表（只保留 2 個類別）
     const getCategoryName = (categoryName, language) => {
         const categoryMap = {
             '轉入按揭戶口': { 'en': 'Transfer to Mortgage Account', 'zh-CN': '轉入按揭戶口' },
@@ -88,6 +92,10 @@ export default function NewTransaction() {
         return categoryMap[categoryName]?.[language] || categoryName;
     };
 
+    const amountColorClass = isExpense
+        ? 'border-red-200 focus:border-red-400 focus:ring-red-100 text-red-700'
+        : 'border-green-200 focus:border-green-400 focus:ring-green-100 text-green-700';
+
     return (
         <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-3xl shadow-xl p-8">
@@ -95,32 +103,16 @@ export default function NewTransaction() {
                 <p className="text-gray-600 mb-8">{t('transaction.subtitle')}</p>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* 日期 */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.date')}</label>
                         <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1" />
                     </div>
 
-                    {/* 金額 */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.amount')}</label>
-                        <input type="number" value={form.amount} onChange={handleAmountChange} placeholder={t('transaction.amountPlaceholder')} className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1" />
-                    </div>
-
-                    {/* 貢獻者 */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.operator')}</label>
-                        <select value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })} className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500">
-                            {users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
-                        </select>
-                    </div>
-
-                    {/* 類別 */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.category')}</label>
                         <select
                             value={form.categoryId}
-                            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                            onChange={(e) => handleCategoryChange(e.target.value)}
                             className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500"
                         >
                             {categories.map(cat => (
@@ -131,13 +123,49 @@ export default function NewTransaction() {
                         </select>
                     </div>
 
-                    {/* 描述 */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.amount')}</label>
+                        <div className="relative">
+                            <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold ${isExpense ? 'text-red-500' : 'text-green-600'}`}>
+                                {isExpense ? '−' : '+'}
+                            </span>
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={form.amount}
+                                onChange={handleAmountChange}
+                                placeholder={t('transaction.amountPlaceholder')}
+                                className={`w-full pl-10 pr-4 py-3 border rounded-2xl focus:outline-none focus:ring-1 ${amountColorClass}`}
+                            />
+                        </div>
+                        <p className={`text-xs mt-1 ${isExpense ? 'text-red-400' : 'text-green-600'}`}>
+                            {isExpense ? t('transaction.amountExpenseHint') : t('transaction.amountIncomeHint')}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className={`block text-sm font-medium mb-1 ${isExpense ? 'text-gray-400' : 'text-gray-700'}`}>
+                            {t('transaction.operator')}
+                        </label>
+                        <select
+                            value={form.userId}
+                            onChange={(e) => setForm({ ...form, userId: e.target.value })}
+                            disabled={isExpense}
+                            className={`w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 ${isExpense ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
+                        >
+                            {users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
+                        </select>
+                        {isExpense && (
+                            <p className="text-xs text-gray-400 mt-1">{t('transaction.operatorNotRequired')}</p>
+                        )}
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.description')}</label>
                         <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t('transaction.descriptionPlaceholder')} className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500" />
                     </div>
 
-                    {/* 提交按鈕 */}
                     <button type="submit" disabled={mutation.isPending} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-4 rounded-2xl text-lg transition-all mt-4">
                         {mutation.isPending ? t('common.submitting') : t('transaction.submit')}
                     </button>

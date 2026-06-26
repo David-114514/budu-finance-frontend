@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/axios';
-import { Home, TrendingUp, Users, Wallet, ArrowRight } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { TrendingUp, Users, Wallet } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { format, subMonths } from 'date-fns';
+import { mergeMonthlyData } from '../utils/transactionHelper';
 
 const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b'];
 
@@ -20,14 +21,24 @@ export default function Dashboard() {
         queryFn: async () => (await api.get('/dashboard')).data,
     });
 
-    // 動態查詢每月轉入數據
+    const dateRangeReady = !!startDate && !!endDate;
+
     const { data: monthlyTransferData = [] } = useQuery({
         queryKey: ['monthlyTransfer', startDate, endDate],
         queryFn: async () => {
             const res = await api.get(`/dashboard/monthly-transfer?start=${startDate}&end=${endDate}`);
             return res.data;
         },
-        enabled: !!startDate && !!endDate,
+        enabled: dateRangeReady,
+    });
+
+    const { data: monthlyExpenseData = [] } = useQuery({
+        queryKey: ['monthlyExpense', startDate, endDate],
+        queryFn: async () => {
+            const res = await api.get(`/dashboard/monthly-expense?start=${startDate}&end=${endDate}`);
+            return res.data;
+        },
+        enabled: dateRangeReady,
     });
 
     const personalBalances = dashboard?.personalBalances || [];
@@ -37,6 +48,11 @@ export default function Dashboard() {
         value: Number(person.balance) || 0,
         color: COLORS[index % COLORS.length]
     }));
+
+    const mergedMonthlyData = useMemo(
+        () => mergeMonthlyData(monthlyTransferData, monthlyExpenseData),
+        [monthlyTransferData, monthlyExpenseData]
+    );
 
     if (isLoading) return <div className="text-center py-20 text-xl">{t('common.loading')}</div>;
     if (error) return <div className="text-center py-20 text-red-600">{t('common.error')}</div>;
@@ -109,12 +125,11 @@ export default function Dashboard() {
                 <p className="text-xs text-gray-400 mt-4">* 根據實際交易記錄自動計算</p>
             </div>
 
-            {/* 每月轉入按揭帳戶（折線圖 + 動態日期範圍） */}
+            {/* 每月收支趨勢 */}
             <div className="bg-white rounded-3xl shadow-xl p-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-semibold">{t('dashboard.monthlyTransfer')}</h3>
+                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+                    <h3 className="text-xl font-semibold">{t('dashboard.monthlyTrend')}</h3>
 
-                    {/* 日期範圍選擇器 */}
                     <div className="flex items-center gap-3">
                         <input
                             type="date"
@@ -132,20 +147,26 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={monthlyTransferData}>
+                <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={mergedMonthlyData} barGap={4}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="month" />
                         <YAxis />
                         <Tooltip />
-                        <Line
-                            type="monotone"
-                            dataKey="amount"
-                            stroke="#3b82f6"
-                            strokeWidth={3}
-                            dot={{ fill: '#3b82f6', r: 4 }}
+                        <Legend />
+                        <Bar
+                            dataKey="transfer"
+                            name={t('dashboard.monthlyTransfer')}
+                            fill="#3b82f6"
+                            radius={[6, 6, 0, 0]}
                         />
-                    </LineChart>
+                        <Bar
+                            dataKey="expense"
+                            name={t('dashboard.monthlyExpense')}
+                            fill="#ef4444"
+                            radius={[6, 6, 0, 0]}
+                        />
+                    </BarChart>
                 </ResponsiveContainer>
             </div>
 

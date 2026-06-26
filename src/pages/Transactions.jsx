@@ -21,9 +21,18 @@ export default function Transactions() {
             const res = await api.get(
                 `/transactions?start=${startDate}&end=${endDate}&page=${page}&size=${size}`
             );
-            return res.data; // 後端回傳的是 Spring Page 物件
+            return res.data;
         }
     });
+
+    const { data: categories = [] } = useQuery({
+        queryKey: ['categories'],
+        queryFn: async () => (await api.get('/categories')).data,
+    });
+
+    const categoryIconMap = Object.fromEntries(
+        categories.map(cat => [cat.id, cat.icon])
+    );
 
     const transactions = pageData?.content || [];
     const totalElements = pageData?.totalElements || 0;
@@ -95,23 +104,28 @@ export default function Transactions() {
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                    {transactions.map(t => (
-                        <tr key={t.id} className="hover:bg-gray-50">
+                    {transactions.map(tx => (
+                        <tr key={tx.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                {format(new Date(t.date), 'yyyy-MM-dd')}
+                                {format(new Date(tx.date), 'yyyy-MM-dd')}
                             </td>
                             <td className="px-6 py-4">
-                                <span className="text-lg mr-2">{getCategoryName(t.categoryName)}</span>
+                                <span className="inline-flex items-center gap-2">
+                                    <span className="text-xl">{categoryIconMap[tx.categoryId] || ''}</span>
+                                    <span>{getCategoryName(tx.categoryName)}</span>
+                                </span>
                             </td>
-                            <td className="px-6 py-4 text-gray-600">{t.description || '-'}</td>
+                            <td className="px-6 py-4 text-gray-600">{tx.description || '-'}</td>
                             <td className="px-6 py-4 text-right font-medium">
-                                {t.amount > 0 ? (
-                                    <span className="text-green-600">+{t.amount.toLocaleString()}</span>
+                                {tx.amount > 0 ? (
+                                    <span className="text-green-600">+{tx.amount.toLocaleString()}</span>
                                 ) : (
-                                    <span className="text-red-600">{t.amount.toLocaleString()}</span>
+                                    <span className="text-red-600">{tx.amount.toLocaleString()}</span>
                                 )}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">{t.userName}</td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                                {tx.userName || (tx.amount < 0 ? t('transaction.household') : '-')}
+                            </td>
                         </tr>
                     ))}
                     </tbody>
