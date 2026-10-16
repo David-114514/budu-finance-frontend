@@ -1,34 +1,46 @@
 import axios from 'axios';
+import { clearSession, getToken } from '../utils/session';
 
 const api = axios.create({
-    baseURL: 'http://localhost:8080/api',
-    timeout: 10000,
+    baseURL: import.meta.env.VITE_API_BASE || '/api',
+    timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// 請求攔截器：自動帶 token
-api.interceptors.request.use(request => {
-    const token = localStorage.getItem('token');
+api.interceptors.request.use((request) => {
+    const token = getToken();
     if (token) {
         request.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('🚀 請求發送:', request.method.toUpperCase(), request.url);
     return request;
 });
 
 api.interceptors.response.use(
-    response => response,
-    error => {
-        console.error('❌ API 錯誤:', error.message);
-        if (error.response?.status === 401) {
-            alert('登入已過期，請重新登入');
-            localStorage.removeItem('token');
-            window.location.reload();
+    (response) => response,
+    (error) => {
+        const url = error.config?.url || '';
+        if (error.response?.status === 401 && !url.includes('/login')) {
+            clearSession();
+            if (!window.location.pathname.startsWith('/login')) {
+                window.location.assign('/login?expired=1');
+            }
         }
         return Promise.reject(error);
-    }
+    },
 );
+
+export function errorMessage(error, fallback) {
+    return error?.response?.data?.message || fallback;
+}
+
+export function invalidateFinance(queryClient) {
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['monthly'] });
+    queryClient.invalidateQueries({ queryKey: ['interest'] });
+    queryClient.invalidateQueries({ queryKey: ['mortgage'] });
+    queryClient.invalidateQueries({ queryKey: ['transactions'] });
+}
 
 export default api;

@@ -1,93 +1,103 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, List, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Dashboard from './pages/Dashboard';
 import NewTransaction from './pages/NewTransaction';
 import Transactions from './pages/Transactions';
 import Login from './pages/Login';
 import LanguageSwitcher from './components/LanguageSwitcher';
-import { useTranslation } from 'react-i18next';
+import PasswordDialog from './components/PasswordDialog';
+import { clearSession, getToken, getUser } from './utils/session';
 
 const queryClient = new QueryClient();
 
-function App() {
-  const { t, i18n } = useTranslation();
-  const [currentPage, setCurrentPage] = useState('login');
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+const linkClass = ({ isActive }) =>
+    `px-4 py-2 rounded-xl text-sm font-medium ${isActive ? 'bg-white shadow text-blue-600' : 'text-slate-600'}`;
 
-  useEffect(() => {
-    if (localStorage.getItem('token')) {
-      setIsLoggedIn(true);
-      setCurrentPage('dashboard');
-    }
-  }, []);
+const tabClass = ({ isActive }) =>
+    `flex-1 flex flex-col items-center gap-1 py-2 text-xs font-medium ${isActive ? 'text-blue-600' : 'text-slate-500'}`;
 
-  const handleLoginSuccess = () => {
-    setIsLoggedIn(true);
-    setCurrentPage('dashboard');
-  };
+function Shell() {
+    const { t } = useTranslation();
+    const navigate = useNavigate();
+    const user = getUser();
+    const [passwordOpen, setPasswordOpen] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setIsLoggedIn(false);
-    setCurrentPage('login');
-  };
+    const logout = () => {
+        clearSession();
+        navigate('/login', { replace: true });
+    };
 
-  if (!isLoggedIn) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  return (
-      <QueryClientProvider client={queryClient}>
-        <div className="min-h-screen bg-gray-50">
-          <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
-            <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-bold text-2xl">B</div>
-                <h1 className="text-2xl font-bold text-gray-900">{t('app.title')}</h1>
-              </div>
-
-              <div className="flex items-center gap-6">
-                <div className="flex gap-1 bg-gray-100 p-1 rounded-2xl">
-                  <button
-                      onClick={() => setCurrentPage('dashboard')}
-                      className={`px-5 py-2.5 rounded-xl font-medium ${currentPage === 'dashboard' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-white'}`}
-                  >
-                    {t('app.dashboard')}
-                  </button>
-                  <button
-                      onClick={() => setCurrentPage('newTransaction')}
-                      className={`px-5 py-2.5 rounded-xl font-medium ${currentPage === 'newTransaction' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-white'}`}
-                  >
-                    {t('app.newTransaction')}
-                  </button>
-                  <button
-                      onClick={() => setCurrentPage('transactions')}
-                      className={`px-5 py-2.5 rounded-xl font-medium ${currentPage === 'transactions' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-white'}`}
-                  >
-                    {t('app.transactions')}
-                  </button>
+    return (
+        <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 md:pb-0">
+            <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+                <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 shrink-0 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-bold">B</div>
+                        <div className="min-w-0">
+                            <h1 className="text-lg font-bold truncate">{t('app.title')}</h1>
+                            {user && <p className="text-xs text-slate-500 truncate">{user.name}</p>}
+                        </div>
+                    </div>
+                    <nav className="hidden md:flex gap-1 bg-slate-100 p-1 rounded-2xl">
+                        <NavLink to="/" end className={linkClass}>{t('app.dashboard')}</NavLink>
+                        <NavLink to="/new" className={linkClass}>{t('app.newTransaction')}</NavLink>
+                        <NavLink to="/transactions" className={linkClass}>{t('app.transactions')}</NavLink>
+                    </nav>
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <LanguageSwitcher />
+                        <button type="button" onClick={() => setPasswordOpen(true)} className="hidden sm:inline text-sm text-slate-500 hover:text-slate-800">
+                            {t('app.password')}
+                        </button>
+                        <button type="button" onClick={logout} className="text-sm text-rose-600">
+                            {t('app.logout')}
+                        </button>
+                    </div>
                 </div>
-
-                <LanguageSwitcher />
-
-                <button
-                    onClick={handleLogout}
-                    className="text-sm text-red-500 hover:text-red-600"
-                >
-                  {t('app.logout')}
-                </button>
-              </div>
-            </div>
-          </nav>
-
-          <main className="max-w-7xl mx-auto px-6 py-8">
-            {currentPage === 'dashboard' && <Dashboard onNavigate={setCurrentPage} />}
-            {currentPage === 'newTransaction' && <NewTransaction />}
-            {currentPage === 'transactions' && <Transactions />}
-          </main>
+            </header>
+            <main className="max-w-6xl mx-auto px-4 md:px-6 py-6">
+                <Outlet />
+            </main>
+            <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 flex pb-[max(0.4rem,env(safe-area-inset-bottom))] z-40">
+                <NavLink to="/" end className={tabClass}>
+                    <LayoutDashboard className="w-5 h-5" />
+                    {t('app.dashboard')}
+                </NavLink>
+                <NavLink to="/new" className={tabClass}>
+                    <Plus className="w-5 h-5" />
+                    {t('app.newTransaction')}
+                </NavLink>
+                <NavLink to="/transactions" className={tabClass}>
+                    <List className="w-5 h-5" />
+                    {t('app.transactions')}
+                </NavLink>
+            </nav>
+            {passwordOpen && <PasswordDialog onClose={() => setPasswordOpen(false)} />}
         </div>
-      </QueryClientProvider>
-  );
+    );
 }
 
-export default App;
+function RequireAuth() {
+    if (!getToken()) return <Navigate to="/login" replace />;
+    return <Shell />;
+}
+
+export default function App() {
+    return (
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+                <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route element={<RequireAuth />}>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/new" element={<NewTransaction />} />
+                        <Route path="/transactions" element={<Transactions />} />
+                    </Route>
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </BrowserRouter>
+        </QueryClientProvider>
+    );
+}

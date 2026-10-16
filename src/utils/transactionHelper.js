@@ -1,39 +1,42 @@
-const INCOME_TYPES = new Set(['INCOME', 'TRANSFER', 'PARENT_CONTRIB']);
 const EXPENSE_TYPES = new Set(['EXPENSE', 'PARENT_REPAY']);
 
-export const isIncomeCategory = (category) =>
-    category && INCOME_TYPES.has(category.type);
-
 export const isExpenseCategory = (category) =>
-    category && EXPENSE_TYPES.has(category.type);
+    !!category && EXPENSE_TYPES.has(category.type || category.categoryType);
 
-/** 輸入框只保留正數 */
 export const sanitizePositiveAmount = (value) => {
-    if (!value && value !== 0) return '';
-    const str = String(value).replace(/^-/, '');
-    return str;
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/^-/, '');
 };
 
-/** 提交時依類別轉為帶正負號的實際金額 */
-export const toSignedAmount = (positiveAmount, category) => {
-    const num = Math.abs(parseFloat(positiveAmount));
-    if (!num || !category) return positiveAmount;
-    return isExpenseCategory(category) ? -num : num;
-};
+export function fillMonthlyData(rows = [], startDate, endDate) {
+    if (!startDate || !endDate || startDate > endDate) return [];
+    const map = new Map(rows.map((row) => [row.month, {
+        month: row.month,
+        transfer: Number(row.transfer) || 0,
+        expense: Number(row.expense) || 0,
+    }]));
 
-/** 合併每月轉入與支出資料，供對比圖表使用 */
-export const mergeMonthlyData = (transferData = [], expenseData = []) => {
-    const monthMap = new Map();
+    const [startYear, startMonth] = startDate.slice(0, 7).split('-').map(Number);
+    const [endYear, endMonth] = endDate.slice(0, 7).split('-').map(Number);
+    const filled = [];
+    let year = startYear;
+    let month = startMonth;
+    while (year < endYear || (year === endYear && month <= endMonth)) {
+        const key = `${year}-${String(month).padStart(2, '0')}`;
+        filled.push(map.get(key) || { month: key, transfer: 0, expense: 0 });
+        month += 1;
+        if (month === 13) {
+            month = 1;
+            year += 1;
+        }
+    }
+    return filled;
+}
 
-    transferData.forEach(({ month, amount }) => {
-        monthMap.set(month, { month, transfer: Number(amount) || 0, expense: 0 });
-    });
-
-    expenseData.forEach(({ month, amount }) => {
-        const existing = monthMap.get(month) || { month, transfer: 0, expense: 0 };
-        existing.expense = Number(amount) || 0;
-        monthMap.set(month, existing);
-    });
-
-    return Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month));
-};
+export function categoryLabel(category, t) {
+    const type = category?.type || category?.categoryType;
+    if (type === 'EXPENSE' || type === 'PARENT_REPAY') return t('category.expense');
+    if (type === 'INCOME') return t('category.income');
+    if (type === 'PARENT_CONTRIB') return t('category.parentContrib');
+    return t('category.transfer');
+}

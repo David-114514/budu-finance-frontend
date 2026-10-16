@@ -1,176 +1,217 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../api/axios';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { isExpenseCategory, sanitizePositiveAmount, toSignedAmount } from '../utils/transactionHelper';
+import api, { errorMessage, invalidateFinance } from '../api/axios';
+import { isExpenseCategory, sanitizePositiveAmount } from '../utils/transactionHelper';
+import { formatHkd, todayIso } from '../utils/money';
+import { contributorKey, getUser, lastEntryKey } from '../utils/session';
+
+const MODES = ['in', 'out', 'pass'];
 
 export default function NewTransaction() {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
-
+    const [mode, setMode] = useState('in');
     const [form, setForm] = useState({
-        date: new Date().toISOString().split('T')[0],
+        date: todayIso(),
         amount: '',
-        categoryId: '',
-        userId: '1',
         description: '',
-        mortgageInterestSaved: '0'
     });
+    const [categoryOverride, setCategoryOverride] = useState(null);
+    const [userOverride, setUserOverride] = useState(null);
+    const [error, setError] = useState('');
+    const [result, setResult] = useState(null);
+    const [hasLast, setHasLast] = useState(() => !!localStorage.getItem(lastEntryKey()));
 
-    const { data: categories = [] } = useQuery({
+    const categoriesQuery = useQuery({
         queryKey: ['categories'],
         queryFn: async () => (await api.get('/categories')).data,
     });
-
-    const { data: users = [] } = useQuery({
+    const usersQuery = useQuery({
         queryKey: ['users'],
         queryFn: async () => (await api.get('/users')).data,
     });
 
-    if (categories.length > 0 && !form.categoryId) {
-        setForm(prev => ({ ...prev, categoryId: categories[0].id }));
-    }
-
-    const selectedCategory = categories.find(c => c.id == form.categoryId);
-    const isExpense = isExpenseCategory(selectedCategory);
-
-    const handleAmountChange = (e) => {
-        setForm({ ...form, amount: sanitizePositiveAmount(e.target.value) });
-    };
-
-    const handleCategoryChange = (categoryId) => {
-        setForm(prev => ({ ...prev, categoryId }));
-    };
+    const categories = categoriesQuery.data ?? [];
+    const users = usersQuery.data ?? [];
+    const choices = categories.filter((category) => (mode === 'out' ? isExpenseCategory(category) : !isExpenseCategory(category)));
+    const needsContributor = mode !== 'out';
+    const selectedCategory = choices.find((category) => String(category.id) === String(categoryOverride)) || choices[0];
+    const savedContributor = localStorage.getItem(contributorKey());
+    const me = getUser();
+    const derivedUserId = [userOverride, savedContributor, me?.id, users[0]?.id]
+        .find((id) => id != null && users.some((user) => String(user.id) === String(id)));
+    const userId = derivedUserId == null ? '' : String(derivedUserId);
 
     const mutation = useMutation({
-        mutationFn: (transactionData) => api.post('/transactions', transactionData),
-        onSuccess: () => {
-            alert(t('transaction.success'));
-            setForm({
-                date: new Date().toISOString().split('T')[0],
-                amount: '',
-                categoryId: categories[0]?.id || '',
-                userId: '1',
-                description: '',
-                mortgageInterestSaved: '0'
+        mutationFn: async () => {
+            if (mode === 'pass') {
+                const response = await api.post('/transactions/pass-through', {
+                    date: form.date,
+                    amount: Math.abs(parseFloat(form.amount)),
+                    userId: Number(userId),
+                    description: form.description,
+                });
+                return response.data;
+            }
+            const response = await api.post('/transactions', {
+                date: form.date,
+                amount: Math.abs(parseFloat(form.amount)),
+                categoryId: Number(selectedCategory.id),
+                description: form.description,
+                ...(needsContributor ? { userId: Number(userId) } : {}),
             });
-            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-            queryClient.invalidateQueries({ queryKey: ['monthlyTransfer'] });
-            queryClient.invalidateQueries({ queryKey: ['monthlyExpense'] });
-            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            return response.data;
         },
-        onError: (error) => {
-            const msg = error.response?.data?.message || error.message || t('common.unknownError');
-            alert(`${t('transaction.failed')}: ${msg}`);
-        }
+        onSuccess: async (data) => {
+            localStorage.setItem(contributorKey(), String(userId));
+            localStorage.setItem(lastEntryKey(), JSON.stringify({
+                mode,
+                amount: form.amount,
+                categoryId: selectedCategory?.id || '',
+                userId,
+                description: form.description,
+            }));
+            setHasLast(true);
+            setResult(data);
+            setError('');
+            await invalidateFinance(queryClient);
+        },
+        onError: (err) => setError(errorMessage(err, t('transaction.failed'))),
     });
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!form.amount || parseFloat(form.amount) === 0) {
-            alert(t('transaction.amountRequired'));
+    const submit = (event) => {
+        event.preventDefault();
+        if (!form.amount || Number(form.amount) <= 0) {
+            setError(t('transaction.amountRequired'));
             return;
         }
-        const payload = {
-            date: form.date,
-            amount: toSignedAmount(form.amount, selectedCategory),
-            categoryId: form.categoryId,
-            description: form.description,
-            mortgageInterestSaved: form.mortgageInterestSaved,
-        };
-        if (!isExpense) {
-            payload.userId = form.userId;
+        if (mode !== 'pass' && !choices.length) {
+            setError(t('common.unknownError'));
+            return;
         }
-        mutation.mutate(payload);
+        setError('');
+        mutation.mutate();
     };
 
-    const getCategoryName = (categoryName, language) => {
-        const categoryMap = {
-            '轉入按揭戶口': { 'en': 'Transfer to Mortgage Account', 'zh-CN': '轉入按揭戶口' },
-            '按揭戶口支出': { 'en': 'Mortgage Account Expense', 'zh-CN': '按揭戶口支出' },
-        };
-        return categoryMap[categoryName]?.[language] || categoryName;
+    const repeatLast = () => {
+        const raw = localStorage.getItem(lastEntryKey());
+        if (!raw) return;
+        try {
+            const last = JSON.parse(raw);
+            setMode(last.mode || 'in');
+            setCategoryOverride(last.categoryId || null);
+            setUserOverride(last.userId || null);
+            setForm({
+                date: todayIso(),
+                amount: last.amount || '',
+                description: last.description || '',
+            });
+            setResult(null);
+        } catch {
+            localStorage.removeItem(lastEntryKey());
+        }
     };
 
-    const amountColorClass = isExpense
-        ? 'border-red-200 focus:border-red-400 focus:ring-red-100 text-red-700'
-        : 'border-green-200 focus:border-green-400 focus:ring-green-100 text-green-700';
+    const reset = () => {
+        setResult(null);
+        setForm((prev) => ({ ...prev, date: todayIso(), amount: '', description: '' }));
+    };
+
+    if (result) {
+        return (
+            <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 p-8">
+                <p className="text-emerald-700 font-medium">{t('transaction.done')}</p>
+                <p className="text-3xl font-bold mt-3 tabular-nums">{t('transaction.balanceNow', { amount: formatHkd(result.ledgerBalance) })}</p>
+                <div className="flex flex-col sm:flex-row gap-3 mt-8">
+                    <button type="button" onClick={reset} className="flex-1 py-3 rounded-2xl bg-blue-600 text-white">{t('transaction.again')}</button>
+                    <Link to="/transactions" className="flex-1 py-3 rounded-2xl border border-slate-200 text-center">{t('transaction.viewLedger')}</Link>
+                </div>
+            </div>
+        );
+    }
+
+    const submitLabel = mode === 'pass' ? t('transaction.submitPass') : mode === 'out' ? t('transaction.submitOut') : t('transaction.submitIn');
 
     return (
-        <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-3xl shadow-xl p-8">
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">{t('transaction.title')}</h2>
-                <p className="text-gray-600 mb-8">{t('transaction.subtitle')}</p>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.date')}</label>
-                        <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1" />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.category')}</label>
-                        <select
-                            value={form.categoryId}
-                            onChange={(e) => handleCategoryChange(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500"
-                        >
-                            {categories.map(cat => (
-                                <option key={cat.id} value={cat.id}>
-                                    {cat.icon} {getCategoryName(cat.name, i18n.language)}
-                                </option>
+        <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 p-6 md:p-8">
+            <h2 className="text-2xl font-bold">{t('transaction.title')}</h2>
+            <p className="text-slate-500 mt-1 mb-6">{t('transaction.subtitle')}</p>
+            <div className="grid grid-cols-3 gap-2 mb-6">
+                {MODES.map((item) => (
+                    <button
+                        key={item}
+                        type="button"
+                        onClick={() => setMode(item)}
+                        className={`py-3 rounded-2xl text-sm font-medium ${mode === item ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                    >
+                        {t(item === 'in' ? 'transaction.modeIn' : item === 'out' ? 'transaction.modeOut' : 'transaction.modePass')}
+                    </button>
+                ))}
+            </div>
+            {mode === 'pass' && <p className="text-sm text-slate-600 bg-slate-50 rounded-2xl px-4 py-3 mb-5">{t('transaction.passHint')}</p>}
+            <form onSubmit={submit} className="space-y-5">
+                <label className="block">
+                    <span className="block text-sm font-medium text-slate-700 mb-1">{t('transaction.amount')}</span>
+                    <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={form.amount}
+                        onChange={(event) => setForm({ ...form, amount: sanitizePositiveAmount(event.target.value) })}
+                        placeholder={t('transaction.amountPlaceholder')}
+                        className="w-full px-4 py-4 text-2xl border border-slate-200 rounded-2xl tabular-nums"
+                        autoFocus
+                    />
+                </label>
+                <label className="block">
+                    <span className="block text-sm font-medium text-slate-700 mb-1">{t('transaction.date')}</span>
+                    <input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-2xl" required />
+                </label>
+                {mode !== 'pass' && choices.length > 1 && (
+                    <label className="block">
+                        <span className="block text-sm font-medium text-slate-700 mb-1">{t('transaction.category')}</span>
+                        <select value={selectedCategory ? selectedCategory.id : ''} onChange={(event) => setCategoryOverride(event.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-2xl">
+                            {choices.map((category) => (
+                                <option key={category.id} value={category.id}>{category.icon} {category.name}</option>
                             ))}
                         </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.amount')}</label>
-                        <div className="relative">
-                            <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold ${isExpense ? 'text-red-500' : 'text-green-600'}`}>
-                                {isExpense ? '−' : '+'}
-                            </span>
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={form.amount}
-                                onChange={handleAmountChange}
-                                placeholder={t('transaction.amountPlaceholder')}
-                                className={`w-full pl-10 pr-4 py-3 border rounded-2xl focus:outline-none focus:ring-1 ${amountColorClass}`}
-                            />
-                        </div>
-                        <p className={`text-xs mt-1 ${isExpense ? 'text-red-400' : 'text-green-600'}`}>
-                            {isExpense ? t('transaction.amountExpenseHint') : t('transaction.amountIncomeHint')}
-                        </p>
-                    </div>
-
-                    <div>
-                        <label className={`block text-sm font-medium mb-1 ${isExpense ? 'text-gray-400' : 'text-gray-700'}`}>
-                            {t('transaction.operator')}
-                        </label>
-                        <select
-                            value={form.userId}
-                            onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                            disabled={isExpense}
-                            className={`w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 ${isExpense ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
-                        >
-                            {users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
-                        </select>
-                        {isExpense && (
-                            <p className="text-xs text-gray-400 mt-1">{t('transaction.operatorNotRequired')}</p>
-                        )}
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('transaction.description')}</label>
-                        <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t('transaction.descriptionPlaceholder')} className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500" />
-                    </div>
-
-                    <button type="submit" disabled={mutation.isPending} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-4 rounded-2xl text-lg transition-all mt-4">
-                        {mutation.isPending ? t('common.submitting') : t('transaction.submit')}
+                    </label>
+                )}
+                <label className="block">
+                    <span className={`block text-sm font-medium mb-1 ${needsContributor ? 'text-slate-700' : 'text-slate-400'}`}>{t('transaction.operator')}</span>
+                    <select
+                        value={userId}
+                        onChange={(event) => setUserOverride(event.target.value)}
+                        disabled={!needsContributor}
+                        className={`w-full px-4 py-3 border border-slate-200 rounded-2xl ${needsContributor ? '' : 'bg-slate-100 text-slate-400'}`}
+                    >
+                        {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+                    </select>
+                    {!needsContributor && <p className="text-xs text-slate-400 mt-1">{t('transaction.operatorNotRequired')}</p>}
+                </label>
+                <label className="block">
+                    <span className="block text-sm font-medium text-slate-700 mb-1">{t('transaction.description')}</span>
+                    <input
+                        type="text"
+                        value={form.description}
+                        onChange={(event) => setForm({ ...form, description: event.target.value })}
+                        placeholder={t('transaction.descriptionPlaceholder')}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-2xl"
+                    />
+                </label>
+                {error && <p className="text-sm text-rose-600">{error}</p>}
+                <button type="submit" disabled={mutation.isPending} className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-semibold py-4 rounded-2xl">
+                    {mutation.isPending ? t('common.submitting') : submitLabel}
+                </button>
+                {hasLast && (
+                    <button type="button" onClick={repeatLast} className="w-full text-sm text-slate-500 py-2">
+                        {t('transaction.repeat')}
                     </button>
-                </form>
-            </div>
+                )}
+            </form>
         </div>
     );
 }
